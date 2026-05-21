@@ -1,5 +1,6 @@
-import CGVirtualDisplayPrivate
 import Cocoa
+import CoreGraphics
+import Foundation
 
 class AppDelegate: NSObject, NSApplicationDelegate {
     private let showMenu: Bool
@@ -42,7 +43,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let isNative = customWidth == nil && customHeight == nil
         let scale = isNative ? nativeScale : 1
 
-        let descriptor = CGVirtualDisplayDescriptor()
+        var descriptor = CGVirtualDisplayDescriptor()
         descriptor.setDispatchQueue(.main)
         descriptor.name = "Virtual 240Hz"
         descriptor.maxPixelsWide = UInt32(w * scale)
@@ -54,13 +55,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         descriptor.terminationHandler = { [weak self] _, _ in self?.virtualDisplay = nil }
 
         let display = CGVirtualDisplay(descriptor: descriptor)
-        let settings = CGVirtualDisplaySettings()
+        var settings = CGVirtualDisplaySettings()
         settings.hiDPI = isNative && scale > 1 ? 1 : 0
         settings.modes = [
             CGVirtualDisplayMode(width: UInt(w), height: UInt(h), refreshRate: 240),
             CGVirtualDisplayMode(width: UInt(w), height: UInt(h), refreshRate: 60),
         ]
-        display.apply(settings)
+    
+        _ = display.applySettings(settings)
         virtualDisplay = display
 
         pollTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
@@ -103,9 +105,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         if let mode = nativeMode {
             CGConfigureDisplayWithDisplayMode(cfg, physicalDisplayID, mode, nil)
         }
-        CGCompleteDisplayConfiguration(cfg, CGConfigureOption(rawValue: 0))
+        let rawOptions: UInt32 = 0
+        CGCompleteDisplayConfiguration(cfg, CGConfigureOption(rawValue: rawOptions))
         nativeMode = nil
     }
+
 
     private func setupStatusBar() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
