@@ -1,3 +1,4 @@
+import CGVirtualDisplayPrivate
 import Cocoa
 
 class AppDelegate: NSObject, NSApplicationDelegate {
