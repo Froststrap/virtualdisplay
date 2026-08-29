@@ -4,10 +4,10 @@ import PackageDescription
 let package = Package(
     name: "virtualdisplay",
     platforms: [.macOS(.v11)],
+    products: [
+        .library(name: "virtualdisplay", type: .dynamic, targets: ["virtualdisplay"])
+    ],
     targets: [
-        .executableTarget(
-            name: "virtualdisplay",
-            path: "Sources/virtualdisplay"
-        )
+        .target(name: "virtualdisplay"),
     ]
 )
