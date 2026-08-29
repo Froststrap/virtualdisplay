@@ -11,13 +11,7 @@ Uses macOS's private `CGVirtualDisplay` API to create a virtual monitor at your 
 Requires Xcode Command Line Tools.
 
 ```sh
-make
-```
-
-The binary is output to `.build/virtualdisplay`. To install system-wide:
-
-```sh
-make install  # copies to /usr/local/bin/virtualdisplay
+swift build -c release
 ```
 
 ## Usage
