@@ -20,18 +20,30 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         self.customHeight = height
     }
 
-    func applicationDidFinishLaunching(_: Notification) {
-        NSApp.setActivationPolicy(.accessory)
+    func start() {
         for sig in [SIGTERM, SIGINT] {
             signal(sig, SIG_IGN)
-            let src = DispatchSource.makeSignalSource(signal: sig, queue: .main)
-            src.setEventHandler { [weak self] in self?.stop() }
+
+            let src = DispatchSource.makeSignalSource(
+                signal: sig,
+                queue: .main
+            )
+
+            src.setEventHandler { [weak self] in
+                self?.stop()
+            }
+
             src.resume()
             signalSources.append(src)
         }
+
         setupVirtualDisplay()
-        if showMenu { setupStatusBar() }
+
+        if showMenu {
+            setupStatusBar()
+        }
     }
+
 
     private func setupVirtualDisplay() {
         guard let screen = NSScreen.main else { return }
@@ -55,6 +67,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         descriptor.terminationHandler = { [weak self] _, _ in self?.virtualDisplay = nil }
 
         let display = CGVirtualDisplay(descriptor: descriptor)
+        guard display.handle != nil else { return }
         var settings = CGVirtualDisplaySettings()
         settings.hiDPI = isNative && scale > 1 ? 1 : 0
         settings.modes = [
@@ -128,7 +141,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         pollTimer = nil
         disableMirroring()
         virtualDisplay = nil
-        NSApp.terminate(nil)
     }
 }
 

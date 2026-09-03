@@ -101,9 +101,10 @@ struct CGVirtualDisplayDescriptor {
 }
 
 struct CGVirtualDisplay {
-    internal let handle: AnyObject
+    internal let handle: AnyObject?
     
     var displayID: CGDirectDisplayID {
+        guard let handle = handle else { return 0 }
         return handle.value(forKey: "displayID") as? CGDirectDisplayID ?? 0
     }
     
@@ -119,15 +120,20 @@ struct CGVirtualDisplay {
         
         let initSelector = NSSelectorFromString("initWithDescriptor:")
         typealias ObjCInit = @convention(c) (AnyObject, Selector, AnyObject) -> AnyObject
-        let impl = unsafeBitCast(allocated.method(for: initSelector), to: ObjCInit.self)
-        
+        guard let methodPtr = allocated.method(for: initSelector) else {
+            self.handle = nil
+            return
+        }
+        let impl = unsafeBitCast(methodPtr, to: ObjCInit.self)
         self.handle = impl(allocated, initSelector, descriptor.handle)
     }
     
     func applySettings(_ settings: CGVirtualDisplaySettings) -> Bool {
+        guard let handle = handle else { return false }
         let selector = NSSelectorFromString("applySettings:")
         typealias ObjCMethod = @convention(c) (AnyObject, Selector, AnyObject) -> Bool
-        let impl = unsafeBitCast(handle.method(for: selector), to: ObjCMethod.self)
+        guard let methodPtr = handle.method(for: selector) else { return false }
+        let impl = unsafeBitCast(methodPtr, to: ObjCMethod.self)
         return impl(handle, selector, settings.handle)
     }
 }
