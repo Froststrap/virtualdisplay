@@ -8,6 +8,14 @@ let package = Package(
         .library(name: "virtualdisplay", type: .dynamic, targets: ["virtualdisplay"])
     ],
     targets: [
-        .target(name: "virtualdisplay"),
+        .target(
+            name: "DisplayDetectionKit"
+        ),
+        .target(
+            name: "virtualdisplay",
+            dependencies: [
+                "DisplayDetectionKit",
+            ]
+        ),
     ]
 )

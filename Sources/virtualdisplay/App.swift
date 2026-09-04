@@ -1,21 +1,15 @@
 import Cocoa
 import CoreGraphics
 import Foundation
+import DisplayDetectionKit
 
 class AppDelegate: NSObject, NSApplicationDelegate {
-    private let customWidth: Int?
-    private let customHeight: Int?
     private var virtualDisplay: CGVirtualDisplay?
     private var nativeMode: CGDisplayMode?
     private var physicalDisplayID: CGDirectDisplayID = 0
     private var signalSources: [DispatchSourceSignal] = []
     private var isStopping = false
     private var pollTimer: Timer?
-
-    init(width: Int? = nil, height: Int? = nil) {
-        self.customWidth = width
-        self.customHeight = height
-    }
 
     func start() {
         for sig in [SIGTERM, SIGINT] {
@@ -41,18 +35,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private func setupVirtualDisplay() {
         guard let screen = NSScreen.main else { return }
         physicalDisplayID = CGMainDisplayID()
+        let displayManager = NSDisplayManager()
 
-        let nativeScale = Int(screen.backingScaleFactor)
-        let w = customWidth  ?? Int(screen.frame.width)
-        let h = customHeight ?? Int(screen.frame.height)
-        let isNative = customWidth == nil && customHeight == nil
-        let scale = isNative ? nativeScale : 1
+        let scale = Int(screen.backingScaleFactor)
+        let physical = displayManager.getMode(displayManager.getPrimaryDisplay())
+        let width = physical.width / scale
+        let height = physical.height / scale
 
         var descriptor = CGVirtualDisplayDescriptor()
         descriptor.setDispatchQueue(.main)
         descriptor.name = "Virtual 240Hz"
-        descriptor.maxPixelsWide = UInt32(w * scale)
-        descriptor.maxPixelsHigh = UInt32(h * scale)
+        descriptor.maxPixelsWide = UInt32(physical.width)
+        descriptor.maxPixelsHigh = UInt32(physical.height)
         descriptor.sizeInMillimeters = screen.physicalSizeInMillimeters
         descriptor.productID = 0x1234
         descriptor.vendorID = 0x3456
@@ -62,10 +56,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let display = CGVirtualDisplay(descriptor: descriptor)
         guard display.handle != nil else { return }
         var settings = CGVirtualDisplaySettings()
-        settings.hiDPI = isNative && scale > 1 ? 1 : 0
+        settings.hiDPI = scale > 1 ? 1 : 0
         settings.modes = [
-            CGVirtualDisplayMode(width: UInt(w), height: UInt(h), refreshRate: 240),
-            CGVirtualDisplayMode(width: UInt(w), height: UInt(h), refreshRate: 60),
+            CGVirtualDisplayMode(width: UInt(width), height: UInt(height), refreshRate: 240),
+            CGVirtualDisplayMode(width: UInt(width), height: UInt(height), refreshRate: 60),
         ]
     
         _ = display.applySettings(settings)

@@ -4,20 +4,10 @@ import Foundation
 private var appDelegate: AppDelegate?
 
 @_cdecl("start_display")
-public func startDisplay(
-    _ customWidth: Int32,
-    _ customHeight: Int32
-) -> Int32 {
-
-    let delegate = AppDelegate(
-        width: Int(customWidth),
-        height: Int(customHeight)
-    )
-
+public func startDisplay() -> Int32 {
+    let delegate = AppDelegate()
     appDelegate = delegate
-
     delegate.start()
-
     return 0
 }
 
