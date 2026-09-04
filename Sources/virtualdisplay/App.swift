@@ -3,19 +3,16 @@ import CoreGraphics
 import Foundation
 
 class AppDelegate: NSObject, NSApplicationDelegate {
-    private let showMenu: Bool
     private let customWidth: Int?
     private let customHeight: Int?
     private var virtualDisplay: CGVirtualDisplay?
-    private var statusItem: NSStatusItem?
     private var nativeMode: CGDisplayMode?
     private var physicalDisplayID: CGDirectDisplayID = 0
     private var signalSources: [DispatchSourceSignal] = []
     private var isStopping = false
     private var pollTimer: Timer?
 
-    init(showMenu: Bool, width: Int? = nil, height: Int? = nil) {
-        self.showMenu = showMenu
+    init(width: Int? = nil, height: Int? = nil) {
         self.customWidth = width
         self.customHeight = height
     }
@@ -38,10 +35,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         setupVirtualDisplay()
-
-        if showMenu {
-            setupStatusBar()
-        }
     }
 
 
@@ -121,17 +114,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let rawOptions: UInt32 = 0
         CGCompleteDisplayConfiguration(cfg, CGConfigureOption(rawValue: rawOptions))
         nativeMode = nil
-    }
-
-
-    private func setupStatusBar() {
-        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        statusItem?.button?.image = NSImage(systemSymbolName: "display", accessibilityDescription: nil)
-        let menu = NSMenu()
-        menu.addItem(withTitle: "Virtual 240Hz Display", action: nil, keyEquivalent: "").isEnabled = false
-        menu.addItem(.separator())
-        menu.addItem(withTitle: "Stop", action: #selector(stop), keyEquivalent: "q")
-        statusItem?.menu = menu
     }
 
     @objc func stop() {
