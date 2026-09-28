@@ -6,26 +6,14 @@ mod cgvirtual;
 mod display;
 mod mirror;
 
-use dispatch2::DispatchQueue;
-use objc2::MainThreadMarker;
-
-fn on_main<R: Send>(f: impl FnOnce() -> R + Send) -> R {
-    if MainThreadMarker::new().is_some() {
-        f()
-    } else {
-        let mut out = None;
-        DispatchQueue::main().exec_sync(|| out = Some(f()));
-        out.unwrap()
-    }
-}
+use dispatch2::run_on_main;
 
 #[unsafe(no_mangle)]
 pub extern "C" fn start_display() -> i32 {
-    on_main(display::start)
+    run_on_main(|_| display::start())
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn end_display() -> i32 {
-    on_main(display::stop);
-    0
+    run_on_main(|_| display::stop())
 }

@@ -37,9 +37,10 @@ pub fn start() -> i32 {
     })
 }
 
-pub fn stop() {
+pub fn stop() -> i32 {
     let d = DISPLAY.with_borrow_mut(|slot| slot.take());
     drop(d);
+    0
 }
 
 fn build_config() -> Option<Config> {
