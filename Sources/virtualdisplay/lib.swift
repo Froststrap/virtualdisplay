@@ -1,29 +1,22 @@
 import AppKit
 import Foundation
 
-private var appDelegate: AppDelegate?
-
-@_cdecl("sw_start_display")
-public func startDisplay() -> Int32 {
-    let delegate = AppDelegate()
-    appDelegate = delegate
-    delegate.start()
-    return 0
+@_cdecl("sw_delegate_new")
+public func delegateNew() -> UnsafeMutableRawPointer {
+    Unmanaged.passRetained(AppDelegate()).toOpaque()
 }
 
-@_cdecl("sw_end_display")
-public func endDisplay() -> Int32 {
-    if Thread.isMainThread {
-        appDelegate?.stop()
-        appDelegate = nil
-    } else {
-        let semaphore = DispatchSemaphore(value: 0)
-        DispatchQueue.main.async {
-            appDelegate?.stop()
-            appDelegate = nil
-            semaphore.signal()
-        }
-        semaphore.wait()
-    }
-    return 0
+@_cdecl("sw_delegate_start")
+public func delegateStart(_ p: UnsafeMutableRawPointer) {
+    Unmanaged<AppDelegate>.fromOpaque(p).takeUnretainedValue().start()
+}
+
+@_cdecl("sw_delegate_stop")
+public func delegateStop(_ p: UnsafeMutableRawPointer) {
+    Unmanaged<AppDelegate>.fromOpaque(p).takeUnretainedValue().stop()
+}
+
+@_cdecl("sw_delegate_free")
+public func delegateFree(_ p: UnsafeMutableRawPointer) {
+    Unmanaged<AppDelegate>.fromOpaque(p).release()
 }

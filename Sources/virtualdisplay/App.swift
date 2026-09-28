@@ -31,6 +31,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         setupVirtualDisplay()
     }
 
+    @objc func stop() {
+        guard !isStopping else { return }
+        isStopping = true
+        pollTimer?.invalidate()
+        pollTimer = nil
+        disableMirroring()
+        virtualDisplay = nil
+    }
 
     private func setupVirtualDisplay() {
         guard let screen = NSScreen.main else { return }
@@ -108,15 +116,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let rawOptions: UInt32 = 0
         CGCompleteDisplayConfiguration(cfg, CGConfigureOption(rawValue: rawOptions))
         nativeMode = nil
-    }
-
-    @objc func stop() {
-        guard !isStopping else { return }
-        isStopping = true
-        pollTimer?.invalidate()
-        pollTimer = nil
-        disableMirroring()
-        virtualDisplay = nil
     }
 }
 
