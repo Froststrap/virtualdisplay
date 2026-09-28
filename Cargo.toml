@@ -1,0 +1,22 @@
+[package]
+name = "virtualdisplay"
+version = "0.1.0"
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+# Only used for FFI to call Swift becasue of
+# return types & wanting concrete C types
+# so this will go away once all of swift
+# is moved into rust
+#
+# yeah, i know i yap a lot
+# to excuse some things
+# i do.
+#
+# why do i format comments like this?
+libc.workspace = true

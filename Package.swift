@@ -5,7 +5,7 @@ let package = Package(
     name: "virtualdisplay",
     platforms: [.macOS(.v11)],
     products: [
-        .library(name: "virtualdisplay", type: .dynamic, targets: ["virtualdisplay"])
+        .library(name: "swvirtualdisplay", type: .static, targets: ["virtualdisplay"])
     ],
     targets: [
         .target(

@@ -3,7 +3,7 @@ import Foundation
 
 private var appDelegate: AppDelegate?
 
-@_cdecl("start_display")
+@_cdecl("sw_start_display")
 public func startDisplay() -> Int32 {
     let delegate = AppDelegate()
     appDelegate = delegate
@@ -11,7 +11,7 @@ public func startDisplay() -> Int32 {
     return 0
 }
 
-@_cdecl("end_display")
+@_cdecl("sw_end_display")
 public func endDisplay() -> Int32 {
     if Thread.isMainThread {
         appDelegate?.stop()
