@@ -2,15 +2,16 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
+use std::ffi::CString;
+
 use block2::RcBlock;
 use dispatch2::DispatchQueue;
 use objc2::{
-    msg_send,
+    class, msg_send,
     rc::{Allocated, Retained},
     runtime::{AnyClass, AnyObject, Bool},
 };
 use objc2_core_foundation::CGSize;
-use objc2_foundation::{NSArray, NSString};
 
 fn class(name: &std::ffi::CStr) -> &'static AnyClass {
     AnyClass::get(name).unwrap_or_else(|| panic!("private class {name:?} not found"))
@@ -36,7 +37,11 @@ impl VirtualDisplay {
             let queue = DispatchQueue::main();
             let queue_ptr = &*queue as *const DispatchQueue as *mut AnyObject;
             let _: () = msg_send![&*desc, setQueue: queue_ptr];
-            let _: () = msg_send![&*desc, setName: &*NSString::from_str(cfg.name)];
+            let name = CString::new(cfg.name).unwrap();
+            let ns_name: Retained<AnyObject> =
+                msg_send![class!(NSString), stringWithUTF8String: name.as_ptr()];
+
+            let _: () = msg_send![&*desc, setName: &*ns_name];
             let _: () = msg_send![&*desc, setMaxPixelsWide: cfg.pixel_width];
             let _: () = msg_send![&*desc, setMaxPixelsHigh: cfg.pixel_height];
             let _: () = msg_send![&*desc, setSizeInMillimeters: cfg.size_mm];
@@ -62,7 +67,16 @@ impl VirtualDisplay {
 
             let settings: Retained<AnyObject> = msg_send![class(c"CGVirtualDisplaySettings"), new];
             let _: () = msg_send![&*settings, setHiDPI: u32::from(cfg.hidpi)];
-            let _: () = msg_send![&*settings, setModes: &*NSArray::from_retained_slice(&modes)];
+
+            let ptrs: Vec<*const AnyObject> = modes
+                .iter()
+                .map(|m| Retained::as_ptr(m) as *const AnyObject)
+                .collect();
+
+            let arr: Retained<AnyObject> =
+                msg_send![class!(NSArray), arrayWithObjects: ptrs.as_ptr(), count: ptrs.len()];
+
+            let _: () = msg_send![&*settings, setModes: &*arr];
 
             let ok: Bool = msg_send![&*vd, applySettings: &*settings];
             ok.as_bool().then_some(Self(vd))
