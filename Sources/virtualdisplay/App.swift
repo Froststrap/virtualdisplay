@@ -3,46 +3,19 @@ import CoreGraphics
 import Foundation
 import DisplayDetectionKit
 
-class AppDelegate: NSObject, NSApplicationDelegate {
-    private var virtualDisplay: CGVirtualDisplay?
-    private var nativeMode: CGDisplayMode?
-    private var physicalDisplayID: CGDirectDisplayID = 0
-    private var signalSources: [DispatchSourceSignal] = []
-    private var isStopping = false
-    private var pollTimer: Timer?
+final class AppDelegate {
+    public var virtualDisplay: CGVirtualDisplay?
 
     func start() {
-        for sig in [SIGTERM, SIGINT] {
-            signal(sig, SIG_IGN)
-
-            let src = DispatchSource.makeSignalSource(
-                signal: sig,
-                queue: .main
-            )
-
-            src.setEventHandler { [weak self] in
-                self?.stop()
-            }
-
-            src.resume()
-            signalSources.append(src)
-        }
-
         setupVirtualDisplay()
     }
 
-    @objc func stop() {
-        guard !isStopping else { return }
-        isStopping = true
-        pollTimer?.invalidate()
-        pollTimer = nil
-        disableMirroring()
+    func stop() {
         virtualDisplay = nil
     }
 
     private func setupVirtualDisplay() {
         guard let screen = NSScreen.main else { return }
-        physicalDisplayID = CGMainDisplayID()
         let displayManager = NSDisplayManager()
 
         let scale = Int(screen.backingScaleFactor)
@@ -72,50 +45,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     
         _ = display.applySettings(settings)
         virtualDisplay = display
-
-        pollTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
-            self?.pollForMirroring()
-        }
-    }
-
-    private func pollForMirroring() {
-        guard let vd = virtualDisplay else { pollTimer?.invalidate(); return }
-        var count: CGDisplayCount = 0
-        CGGetActiveDisplayList(0, nil, &count)
-        var ids = [CGDirectDisplayID](repeating: 0, count: Int(count))
-        CGGetActiveDisplayList(count, &ids, &count)
-        guard ids.contains(vd.displayID) else { return }
-        pollTimer?.invalidate()
-        pollTimer = nil
-        enableMirroring()
-    }
-
-    private func enableMirroring() {
-        guard let vd = virtualDisplay else { return }
-        nativeMode = CGDisplayCopyDisplayMode(physicalDisplayID)
-        if CGDisplayIsInMirrorSet(physicalDisplayID) != 0 {
-            var cfg: CGDisplayConfigRef?
-            CGBeginDisplayConfiguration(&cfg)
-            CGConfigureDisplayMirrorOfDisplay(cfg, physicalDisplayID, kCGNullDirectDisplay)
-            CGCompleteDisplayConfiguration(cfg, CGConfigureOption(rawValue: 0))
-        }
-        var cfg: CGDisplayConfigRef?
-        CGBeginDisplayConfiguration(&cfg)
-        CGConfigureDisplayMirrorOfDisplay(cfg, physicalDisplayID, vd.displayID)
-        CGCompleteDisplayConfiguration(cfg, CGConfigureOption(rawValue: 0))
-    }
-
-    private func disableMirroring() {
-        guard CGDisplayIsInMirrorSet(physicalDisplayID) != 0 else { return }
-        var cfg: CGDisplayConfigRef?
-        CGBeginDisplayConfiguration(&cfg)
-        CGConfigureDisplayMirrorOfDisplay(cfg, physicalDisplayID, kCGNullDirectDisplay)
-        if let mode = nativeMode {
-            CGConfigureDisplayWithDisplayMode(cfg, physicalDisplayID, mode, nil)
-        }
-        let rawOptions: UInt32 = 0
-        CGCompleteDisplayConfiguration(cfg, CGConfigureOption(rawValue: rawOptions))
-        nativeMode = nil
     }
 }
 

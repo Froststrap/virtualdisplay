@@ -20,3 +20,8 @@ public func delegateStop(_ p: UnsafeMutableRawPointer) {
 public func delegateFree(_ p: UnsafeMutableRawPointer) {
     Unmanaged<AppDelegate>.fromOpaque(p).release()
 }
+
+@_cdecl("sw_delegate_virtual_id")
+public func delegateVirtualId(_ p: UnsafeMutableRawPointer) -> UInt32 {
+    Unmanaged<AppDelegate>.fromOpaque(p).takeUnretainedValue().virtualDisplay?.displayID ?? 0
+}
