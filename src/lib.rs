@@ -7,9 +7,10 @@ mod display;
 mod mirror;
 
 use dispatch2::DispatchQueue;
+use objc2::MainThreadMarker;
 
 fn on_main<R: Send>(f: impl FnOnce() -> R + Send) -> R {
-    if unsafe { libc::pthread_main_np() } != 0 {
+    if MainThreadMarker::new().is_some() {
         f()
     } else {
         let mut out = None;

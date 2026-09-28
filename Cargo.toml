@@ -9,17 +9,6 @@ license.workspace = true
 crate-type = ["cdylib"]
 
 [dependencies]
-# Only used for FFI to call Swift becasue of
-# return types & wanting concrete C types
-# so this will go away once all of swift
-# is moved into rust
-#
-# yeah, i know i yap a lot
-# to excuse some things
-# i do.
-#
-# why do i format comments like this?
-libc.workspace = true
 objc2.workspace = true
 block2.workspace = true
 dispatch2.workspace = true
