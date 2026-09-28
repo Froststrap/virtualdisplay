@@ -103,7 +103,7 @@ impl Drop for Display {
     }
 }
 
-unsafe extern "C-unwind" fn on_reconfig(
+extern "C-unwind" fn on_reconfig(
     _id: CGDirectDisplayID,
     _flags: CGDisplayChangeSummaryFlags,
     _ctx: *mut c_void,
