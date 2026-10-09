@@ -14,6 +14,11 @@ pub extern "C" fn start_display() -> i32 {
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn is_running() -> i32 {
+    run_on_main(|_| display::running())
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn end_display() -> i32 {
     run_on_main(|_| display::stop())
 }

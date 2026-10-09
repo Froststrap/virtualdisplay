@@ -37,6 +37,15 @@ pub fn start() -> i32 {
     })
 }
 
+pub fn running() -> i32 {
+    DISPLAY.with_borrow_mut(|slot| {
+        match slot.is_some() {
+            false => 0,
+            true => 1,
+        }
+    })
+}
+
 pub fn stop() -> i32 {
     let d = DISPLAY.with_borrow_mut(|slot| slot.take());
     drop(d);
