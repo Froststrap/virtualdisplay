@@ -9,7 +9,16 @@ use crate::{
 use dispatch2::DispatchQueue;
 use objc2_core_foundation::CGSize;
 use objc2_core_graphics::*;
-use std::{cell::RefCell, ffi::c_void, ptr};
+use std::{sync::RwLock, cell::RefCell, ffi::c_void, ptr};
+
+/// publically editable meta
+/// by the user on `init()`
+pub struct DisplayMeta {
+    pub name: String,
+    pub width: i32,
+    pub height: i32,
+    pub hertz: f32,
+}
 
 struct Display {
     vd: VirtualDisplay,
@@ -17,8 +26,19 @@ struct Display {
     mirrored: bool,
 }
 
+
 thread_local! {
+    static META_LOCK: RwLock<Option<DisplayMeta>> = RwLock::new(None);
     static DISPLAY: RefCell<Option<Display>> = const { RefCell::new(None) };
+}
+
+pub fn init(
+    name: String,
+    width: i32,
+    height: i32,
+    hertz: f32
+) -> i32 {
+    let mut _writer = *META_LOCK.try_write().expect("failed to capture mut lock"); 
 }
 
 pub fn start() -> i32 {

@@ -9,6 +9,11 @@ mod mirror;
 use dispatch2::run_on_main;
 
 #[unsafe(no_mangle)]
+pub extern "C" fn init() -> i32 {
+    display::init()
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn start_display() -> i32 {
     run_on_main(|_| display::start())
 }
