@@ -5,12 +5,57 @@
 mod cgvirtual;
 mod display;
 mod mirror;
+mod util;
 
+use std::ffi::c_char;
 use dispatch2::run_on_main;
 
+const MAX_VEC_LEN: usize = 255;
+
 #[unsafe(no_mangle)]
-pub extern "C" fn init() -> i32 {
-    display::init()
+pub unsafe extern "C" fn init(
+    name: *const c_char,
+    width: usize,
+    height: usize,
+    item: *const f64,
+    capacity: usize,
+) -> i32 {
+    fn some_or_usize(i: usize) -> Option<usize> {
+        (i != 0).then_some(i)
+    }
+
+    let name = util::IStr::from(name);
+    let name = if name.0 == "" {
+        None
+    } else {
+        Some(name.0)
+    };
+    let width = some_or_usize(width);
+    let height = some_or_usize(height);
+
+    // GUARD:
+    // Check if rates even has a data length
+    if capacity == 0 {
+        return -1;
+    }
+    
+    // GUARD:
+    // Check if rates has good data
+    if item.is_null() || capacity > MAX_VEC_LEN {
+        return -1;
+    }
+
+    let rates = Some(unsafe {
+        std::slice::from_raw_parts(item, capacity)
+    }.to_vec()); 
+    
+    let data = display::DisplayMeta {
+        name,
+        width,
+        height,
+        rates
+    };
+    display::init(data)
 }
 
 #[unsafe(no_mangle)]

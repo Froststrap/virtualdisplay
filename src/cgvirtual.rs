@@ -19,15 +19,15 @@ fn class(name: &std::ffi::CStr) -> &'static AnyClass {
 
 pub struct VirtualDisplay(Retained<AnyObject>);
 
-pub struct Config {
-    pub name: &'static str,
+pub struct Config<'a> {
+    pub name: &'a str,
     pub pixel_width: u32,
     pub pixel_height: u32,
     pub size_mm: CGSize,
     pub hidpi: bool,
     pub width: usize,
     pub height: usize,
-    pub refresh_rates: &'static [f64],
+    pub refresh_rates: &'a [f64],
 }
 
 impl VirtualDisplay {
@@ -60,8 +60,14 @@ impl VirtualDisplay {
                 .refresh_rates
                 .iter()
                 .map(|&hz| {
-                    let a: Allocated<AnyObject> = msg_send![class(c"CGVirtualDisplayMode"), alloc];
-                    msg_send![a, initWithWidth: cfg.width, height: cfg.height, refreshRate: hz]
+                    let a: Allocated<AnyObject> =
+                        msg_send![class(c"CGVirtualDisplayMode"), alloc];
+                    msg_send![
+                        a,
+                        initWithWidth: cfg.width as u32,
+                        height: cfg.height as u32,
+                        refreshRate: hz
+                    ]
                 })
                 .collect();
 
