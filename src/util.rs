@@ -12,9 +12,9 @@ impl From<String> for IStr {
     }
 }
 
-impl Into<String> for IStr {
-    fn into(self) -> String {
-        self.0
+impl From<IStr> for String {
+    fn from(input: IStr) -> Self {
+        input.0
     }
 }
 
@@ -24,13 +24,11 @@ impl From<*const c_char> for IStr {
             return Self("".into());
         }
 
-        // SAFETY: We know that input it not nul
-        // & this checks for null termination.
+        // SAFETY: We know that input it not null
         //
         // Though it is up to caller with the c_str
-        // to provide its not a retarded string which
-        // it not even a string, which would break
-        // the program anyways.
+        // to provide a good string otherwise it would
+        // break the program anyways.
         let cstr = unsafe {
             CStr::from_ptr(input)
         };
