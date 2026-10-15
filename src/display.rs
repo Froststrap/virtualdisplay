@@ -6,10 +6,22 @@ use crate::{
     cgvirtual::{Config, VirtualDisplay},
     mirror::Mirror,
 };
-use dispatch2::DispatchQueue;
+use dispatch2::{DispatchQueue, DispatchTime};
 use objc2_core_foundation::CGSize;
 use objc2_core_graphics::*;
-use std::{sync::RwLock, cell::RefCell, ffi::c_void, ptr};
+use std::{
+    cell::{Cell, RefCell},
+    ffi::c_void,
+    ptr,
+    sync::RwLock,
+};
+
+/// how long to wait between attempts at settling the display
+const POLL_TICK_NS: i64 = 500_000_000;
+/// how many setup attempts before we stop touching the display config
+const MAX_ATTEMPTS: u32 = 30;
+/// how many times we may break/re-mirror to force the main role over
+const MAX_FORCES: u32 = 3;
 
 /// publically editable meta
 /// by the user on `init()`
@@ -25,12 +37,19 @@ struct Display {
     vd: VirtualDisplay,
     mirror: Mirror,
     mirrored: bool,
+    done: bool,
+    attempts: u32,
+    forces: u32,
+    waits: u32,
+    token: u64,
 }
 
 static META_LOCK: RwLock<Option<DisplayMeta>> = RwLock::new(None);
 
 thread_local! {
     static DISPLAY: RefCell<Option<Display>> = const { RefCell::new(None) };
+    /// bumped on every start so leftover poll chains die off
+    static POLL_GEN: Cell<u64> = const { Cell::new(0) };
 }
 
 pub fn init(s: DisplayMeta) -> i32 {
@@ -45,8 +64,10 @@ pub fn start() -> i32 {
         }
         match Display::start() {
             Some(mut d) => {
-                d.try_mirror();
+                let token = d.token;
+                d.ensure();
                 *slot = Some(d);
+                schedule_poll(token);
                 0
             }
             None => -1,
@@ -67,6 +88,21 @@ pub fn stop() -> i32 {
     let d = DISPLAY.with_borrow_mut(|slot| slot.take());
     drop(d);
     0
+}
+
+/// keep poking `ensure` until the display settles, mirroring the old
+/// Swift `pollForMirroring` timer the rust port dropped
+fn schedule_poll(token: u64) {
+    let _ = DispatchQueue::main().after(DispatchTime::NOW.time(POLL_TICK_NS), move || {
+        if POLL_GEN.with(|g| g.get()) != token {
+            return;
+        }
+        DISPLAY.with_borrow_mut(|slot| {
+            let Some(d) = slot.as_mut() else { return };
+            d.ensure();
+            schedule_poll(token);
+        });
+    });
 }
 
 fn build_config(meta: &DisplayMeta) -> Option<Config<'_>> {
@@ -150,24 +186,134 @@ impl Display {
     fn start() -> Option<Self> {
         let meta = META_LOCK.read().expect("aquire lock").as_ref().cloned().expect("call init() to set data details to use");
         let cfg = build_config(&meta)?;
-        
-        let vd = VirtualDisplay::create(&cfg)?;
+
+        // GUARD:
+        // The physical main display has to be read BEFORE the virtual one
+        // exists, otherwise we may capture the virtual display as our own
+        // physical target and end up mirroring it onto itself.
+        let physical = CGMainDisplayID();
+
+        // Register first so the "display added / became active" event
+        // cannot slip past us while the virtual display spins up.
         unsafe {
             CGDisplayRegisterReconfigurationCallback(Some(on_reconfig), ptr::null_mut());
         }
+
+        let Some(vd) = VirtualDisplay::create(&cfg) else {
+            unsafe {
+                CGDisplayRemoveReconfigurationCallback(Some(on_reconfig), ptr::null_mut());
+            }
+            return None;
+        };
+
+        let token = POLL_GEN.with(|g| {
+            let next = g.get().wrapping_add(1);
+            g.set(next);
+            next
+        });
+
         Some(Self {
             vd,
-            mirror: Mirror::new(CGMainDisplayID()),
+            mirror: Mirror::new(physical),
             mirrored: false,
+            done: false,
+            attempts: 0,
+            forces: 0,
+            waits: 0,
+            token,
         })
     }
 
-    fn try_mirror(&mut self) {
+    /// Get the virtual display to a state where apps vsync against it:
+    /// mirrored onto the physical display AND holding the main role.
+    fn ensure(&mut self) {
         let id = self.vd.id();
-        if !self.mirrored && CGDisplayIsActive(id) {
-            self.mirror.enable(id);
-            self.mirrored = true;
+
+        if !CGDisplayIsActive(id) {
+            self.waits += 1;
+            if self.waits <= 5 || self.waits.is_multiple_of(20) {
+                eprintln!(
+                    "[virtualdisplay] waiting for virtual display {id} to activate ({})",
+                    self.waits
+                );
+            }
+            return;
         }
+
+        // Re-read reality, the window server can drop either at any time.
+        self.mirrored = self.mirror.engaged(id);
+        let main = CGDisplayIsMain(id);
+
+        if self.mirrored && main {
+            if !self.done {
+                eprintln!("[virtualdisplay] virtual display {id} is main + mirrored");
+            }
+            self.done = true;
+            self.attempts = 0;
+            self.forces = 0;
+            return;
+        }
+        self.done = false;
+
+        if self.attempts >= MAX_ATTEMPTS {
+            eprintln!(
+                "[virtualdisplay] giving up: mirrored={} main={main}",
+                self.mirrored
+            );
+            return;
+        }
+        self.attempts += 1;
+
+        // 1) Hand the main role over while both displays are still separate,
+        //    origins are meaningless inside a mirror set.
+        if !self.mirrored && !main {
+            if CGDisplayIsInMirrorSet(self.mirror.physical()) {
+                self.mirror.break_mirror();
+            }
+            self.mirror.make_main(id);
+        }
+
+        // 2) Mirror the physical display onto the virtual one (virtual master).
+        if !self.mirrored {
+            self.mirrored = self.mirror.enable(id);
+            if !self.mirrored && self.mirror.swapped() {
+                // Never leave the menu bar stranded on the invisible display.
+                eprintln!("[virtualdisplay] mirror failed, rolling back main swap");
+                self.mirror.rollback_swap();
+            }
+        }
+
+        // 3) Mirrored, but macOS still handed main to the physical display.
+        //    Break the set, force main over, re-mirror.
+        if self.mirrored && !CGDisplayIsMain(id) {
+            if self.forces >= MAX_FORCES {
+                eprintln!(
+                    "[virtualdisplay] mirror is up but virtual display {id} is not main (gave up forcing)"
+                );
+                return;
+            }
+            self.forces += 1;
+            eprintln!(
+                "[virtualdisplay] forcing main onto virtual display (try {}/{MAX_FORCES})",
+                self.forces
+            );
+
+            self.mirror.break_mirror();
+            self.mirrored = false;
+            self.mirror.make_main(id);
+            self.mirrored = self.mirror.enable(id);
+            if !self.mirrored {
+                eprintln!("[virtualdisplay] re-mirror failed, rolling back main swap");
+                self.mirror.rollback_swap();
+                self.mirrored = self.mirror.enable(id);
+            }
+        }
+
+        eprintln!(
+            "[virtualdisplay] ensure: mirrored={} main={}",
+            self.mirrored,
+            CGDisplayIsMain(id)
+        );
     }
 }
 
@@ -188,7 +334,7 @@ extern "C-unwind" fn on_reconfig(
     DispatchQueue::main().exec_async(|| {
         DISPLAY.with_borrow_mut(|d| {
             if let Some(d) = d {
-                d.try_mirror();
+                d.ensure();
             }
         });
     });

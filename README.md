@@ -9,6 +9,12 @@ Uses macOS's private `CGVirtualDisplay` API to create a virtual monitor
 at your main screen's resolution with a 240Hz refresh rate, then configures
 the system to mirror your physical display to it via `CGConfigureDisplayMirrorOfDisplay`.
 
+It also moves the virtual display to origin `(0,0)` with
+`CGConfigureDisplayOrigin`, which is how macOS designates the main display,
+so apps vsync against the virtual display instead of the physical one.
+Both steps are verified and retried until they stick, and rolled back on
+teardown.
+
 ## Build
 
 Note: You need to clone the Froststrap repo to be able to get the workspace Cargo.toml
