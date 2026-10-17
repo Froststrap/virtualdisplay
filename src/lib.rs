@@ -19,6 +19,7 @@ pub unsafe extern "C" fn init(
     height: usize,
     item: *const f64,
     capacity: usize,
+    serial: u32,
 ) -> i32 {
     fn some_or_usize(i: usize) -> Option<usize> {
         (i != 0).then_some(i)
@@ -49,11 +50,24 @@ pub unsafe extern "C" fn init(
         std::slice::from_raw_parts(item, capacity)
     }.to_vec()); 
     
+    let serial = if serial == 0 {
+        use std::collections::hash_map::RandomState;
+        use std::hash::{BuildHasher, Hasher};
+        let mut hasher = RandomState::new().build_hasher();
+        if let Some(name) = &name {
+            hasher.write(name.as_bytes());
+        }
+        (hasher.finish() as u32).max(1)
+    } else {
+        serial
+    };
+
     let data = display::DisplayMeta {
         name,
         width,
         height,
-        rates
+        rates,
+        serial
     };
     display::init(data)
 }

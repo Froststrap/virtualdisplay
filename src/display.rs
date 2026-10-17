@@ -31,6 +31,7 @@ pub struct DisplayMeta {
     pub width: Option<usize>,
     pub height: Option<usize>,
     pub rates: Option<Vec<f64>>,
+    pub serial: u32,
 }
 
 struct Display {
@@ -48,7 +49,6 @@ static META_LOCK: RwLock<Option<DisplayMeta>> = RwLock::new(None);
 
 thread_local! {
     static DISPLAY: RefCell<Option<Display>> = const { RefCell::new(None) };
-    /// bumped on every start so leftover poll chains die off
     static POLL_GEN: Cell<u64> = const { Cell::new(0) };
 }
 
@@ -57,20 +57,28 @@ pub fn init(s: DisplayMeta) -> i32 {
     0
 }
 
+pub enum StartError {
+    /// meta produced an unusable config
+    Invalid,
+    /// WindowServer rejected display identity
+    Rejected,
+}
+
 pub fn start() -> i32 {
     DISPLAY.with_borrow_mut(|slot| {
         if slot.is_some() {
             return 0;
         }
         match Display::start() {
-            Some(mut d) => {
+            Ok(mut d) => {
                 let token = d.token;
                 d.ensure();
                 *slot = Some(d);
                 schedule_poll(token);
                 0
             }
-            None => -1,
+            Err(StartError::Invalid) => -1,
+            Err(StartError::Rejected) => -2,
         }
     })
 }
@@ -179,13 +187,14 @@ fn build_config(meta: &DisplayMeta) -> Option<Config<'_>> {
         width,
         height,
         refresh_rates,
+        serial: meta.serial,
     })
 }
 
 impl Display {
-    fn start() -> Option<Self> {
+    fn start() -> Result<Self, StartError> {
         let meta = META_LOCK.read().expect("aquire lock").as_ref().cloned().expect("call init() to set data details to use");
-        let cfg = build_config(&meta)?;
+        let cfg = build_config(&meta).ok_or(StartError::Invalid)?;
 
         // GUARD:
         // The physical main display has to be read BEFORE the virtual one
@@ -199,12 +208,9 @@ impl Display {
             CGDisplayRegisterReconfigurationCallback(Some(on_reconfig), ptr::null_mut());
         }
 
-        let Some(vd) = VirtualDisplay::create(&cfg) else {
-            unsafe {
-                CGDisplayRemoveReconfigurationCallback(Some(on_reconfig), ptr::null_mut());
-            }
-            return None;
-        };
+        let vd = VirtualDisplay::create(&cfg).map_err(|_| StartError::Rejected).inspect_err(|_| unsafe {
+            CGDisplayRemoveReconfigurationCallback(Some(on_reconfig), ptr::null_mut());
+        })?;
 
         let token = POLL_GEN.with(|g| {
             let next = g.get().wrapping_add(1);
@@ -212,7 +218,7 @@ impl Display {
             next
         });
 
-        Some(Self {
+        Ok(Self {
             vd,
             mirror: Mirror::new(physical),
             mirrored: false,
