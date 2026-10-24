@@ -10,6 +10,8 @@ mod util;
 use std::ffi::c_char;
 use dispatch2::run_on_main;
 
+logger::export_set_logger!();
+
 const MAX_VEC_LEN: usize = 255;
 
 #[unsafe(no_mangle)]

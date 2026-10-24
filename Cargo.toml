@@ -9,8 +9,10 @@ license.workspace = true
 crate-type = ["cdylib"]
 
 [dependencies]
+log.workspace = true
 objc2.workspace = true
 block2.workspace = true
+logger.workspace = true
 dispatch2.workspace = true
 objc2-core-graphics.workspace = true
 objc2-core-foundation.workspace = true

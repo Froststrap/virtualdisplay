@@ -50,13 +50,13 @@ impl VirtualDisplay {
         // before giving up (see ErrWrongMode in go-macos/virtualdisplay).
         for serial in [cfg.serial, next_serial(cfg.serial)] {
             if let Some(vd) = Self::try_create(cfg, serial) {
-                eprintln!(
-                    "[virtualdisplay] created with identity vendor={VENDOR_ID:#06x} \
+                log::debug!(
+                    "created with identity vendor={VENDOR_ID:#06x} \
                      product={PRODUCT_ID:#06x} serial={serial:#010x}"
                 );
                 return Ok(Self(vd));
             }
-            eprintln!("[virtualdisplay] identity serial={serial:#010x} rejected");
+            log::warn!("identity serial={serial:#010x} rejected");
         }
         Err(CreateError::Rejected)
     }

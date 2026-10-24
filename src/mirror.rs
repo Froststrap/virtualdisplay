@@ -41,8 +41,8 @@ impl Mirror {
         // GUARD:
         // A display cannot mirror itself.
         if master == 0 || self.physical == master {
-            eprintln!(
-                "[virtualdisplay] refusing to mirror {} onto {master}",
+            log::warn!(
+                "refusing to mirror {} onto {master}",
                 self.physical
             );
             return false;
@@ -63,7 +63,7 @@ impl Mirror {
                 CGConfigureDisplayMirrorOfDisplay(cfg, physical, kCGNullDirectDisplay)
             });
             if err != CGError::Success {
-                eprintln!("[virtualdisplay] could not break old mirror set: {err:?}");
+                log::warn!("could not break old mirror set: {err:?}");
                 return false;
             }
         }
@@ -73,13 +73,13 @@ impl Mirror {
             CGConfigureDisplayMirrorOfDisplay(cfg, physical, master)
         });
         if err != CGError::Success {
-            eprintln!("[virtualdisplay] mirror config rejected: {err:?}");
+            log::warn!("mirror config rejected: {err:?}");
             return false;
         }
 
         let ok = self.engaged(master);
-        eprintln!(
-            "[virtualdisplay] mirror physical={} master={master} engaged={ok}",
+        log::debug!(
+            "mirror physical={} master={master} engaged={ok}",
             self.physical
         );
         ok
@@ -110,7 +110,7 @@ impl Mirror {
         let mut count: u32 = 0;
         let err = unsafe { CGGetActiveDisplayList(32, ids.as_mut_ptr(), &mut count) };
         if err != CGError::Success {
-            eprintln!("[virtualdisplay] CGGetActiveDisplayList failed: {err:?}");
+            log::error!("CGGetActiveDisplayList failed: {err:?}");
             return false;
         }
 
@@ -122,7 +122,7 @@ impl Mirror {
         // Nothing to move, so the arrangement cannot be trusted to flip main.
         if dx == 0.0 && dy == 0.0 {
             let main = CGDisplayIsMain(target);
-            eprintln!("[virtualdisplay] target already at origin, isMain={main}");
+            log::debug!("target already at origin, isMain={main}");
             return main;
         }
 
@@ -130,7 +130,7 @@ impl Mirror {
         // Only shift displays we can actually see, and never miss the target.
         let ids = &ids[..count.min(ids.len() as u32) as usize];
         if !ids.contains(&target) {
-            eprintln!("[virtualdisplay] target {target} missing from active display list");
+            log::error!("target {target} missing from active display list");
             return false;
         }
 
@@ -142,7 +142,7 @@ impl Mirror {
                 let y = (b.origin.y.round() - dy) as i32;
                 let err = unsafe { CGConfigureDisplayOrigin(cfg, id, x, y) };
                 if err != CGError::Success {
-                    eprintln!("[virtualdisplay] CGConfigureDisplayOrigin({id}) failed: {err:?}");
+                    log::warn!("CGConfigureDisplayOrigin({id}) failed: {err:?}");
                     result = err;
                     break;
                 }
@@ -155,7 +155,7 @@ impl Mirror {
 
         self.swapped = true;
         let main = CGDisplayIsMain(target);
-        eprintln!("[virtualdisplay] make_main target={target} -> isMain={main}");
+        log::debug!("make_main target={target} -> isMain={main}");
         main
     }
 
@@ -198,7 +198,7 @@ impl Mirror {
             result
         });
         if err != CGError::Success {
-            eprintln!("[virtualdisplay] mirror teardown failed: {err:?}");
+            log::warn!("mirror teardown failed: {err:?}");
         }
     }
 
@@ -214,7 +214,7 @@ impl Mirror {
         unsafe {
             let err = CGBeginDisplayConfiguration(&mut cfg);
             if err != CGError::Success {
-                eprintln!("[virtualdisplay] CGBeginDisplayConfiguration failed: {err:?}");
+                log::error!("CGBeginDisplayConfiguration failed: {err:?}");
                 return err;
             }
 
@@ -226,7 +226,7 @@ impl Mirror {
 
             let err = CGCompleteDisplayConfiguration(cfg, option);
             if err != CGError::Success {
-                eprintln!("[virtualdisplay] CGCompleteDisplayConfiguration failed: {err:?}");
+                log::error!("CGCompleteDisplayConfiguration failed: {err:?}");
             }
             err
         }

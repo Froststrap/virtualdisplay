@@ -122,7 +122,7 @@ fn build_config(meta: &DisplayMeta) -> Option<Config<'_>> {
     let mode_h = CGDisplayMode::height(Some(&mode));
 
     let is_native = meta.width.is_none() && meta.height.is_none();
-    eprintln!("is_native={is_native}");
+    log::debug!("is_native={is_native}");
 
     // GUARD:
     // Width OR Height manual management
@@ -132,8 +132,8 @@ fn build_config(meta: &DisplayMeta) -> Option<Config<'_>> {
 
     let width = meta.width.unwrap_or(mode_w);
     let height = meta.height.unwrap_or(mode_h);
-    eprintln!("width={width}");
-    eprintln!("height={height}");
+    log::debug!("width={width}");
+    log::debug!("height={height}");
 
     // GUARD:
     // CG Will probably segfault getting this
@@ -144,8 +144,8 @@ fn build_config(meta: &DisplayMeta) -> Option<Config<'_>> {
     
     let pixel_width = width.checked_mul(scale)?;
     let pixel_height = height.checked_mul(scale)?;
-    eprintln!("pixel_width={pixel_width}");
-    eprintln!("pixel_height={pixel_height}");
+    log::debug!("pixel_width={pixel_width}");
+    log::debug!("pixel_height={pixel_height}");
 
     let mm = CGDisplayScreenSize(main);
     let size_mm = if mm.width > 0.0 && mm.height > 0.0 {
@@ -238,8 +238,8 @@ impl Display {
         if !CGDisplayIsActive(id) {
             self.waits += 1;
             if self.waits <= 5 || self.waits.is_multiple_of(20) {
-                eprintln!(
-                    "[virtualdisplay] waiting for virtual display {id} to activate ({})",
+                log::debug!(
+                    "waiting for virtual display {id} to activate ({})",
                     self.waits
                 );
             }
@@ -252,7 +252,7 @@ impl Display {
 
         if self.mirrored && main {
             if !self.done {
-                eprintln!("[virtualdisplay] virtual display {id} is main + mirrored");
+                log::info!("virtual display {id} is main + mirrored");
             }
             self.done = true;
             self.attempts = 0;
@@ -262,8 +262,8 @@ impl Display {
         self.done = false;
 
         if self.attempts >= MAX_ATTEMPTS {
-            eprintln!(
-                "[virtualdisplay] giving up: mirrored={} main={main}",
+            log::warn!(
+                "giving up: mirrored={} main={main}",
                 self.mirrored
             );
             return;
@@ -284,7 +284,7 @@ impl Display {
             self.mirrored = self.mirror.enable(id);
             if !self.mirrored && self.mirror.swapped() {
                 // Never leave the menu bar stranded on the invisible display.
-                eprintln!("[virtualdisplay] mirror failed, rolling back main swap");
+                log::warn!("mirror failed, rolling back main swap");
                 self.mirror.rollback_swap();
             }
         }
@@ -293,14 +293,14 @@ impl Display {
         //    Break the set, force main over, re-mirror.
         if self.mirrored && !CGDisplayIsMain(id) {
             if self.forces >= MAX_FORCES {
-                eprintln!(
-                    "[virtualdisplay] mirror is up but virtual display {id} is not main (gave up forcing)"
+                log::warn!(
+                    "mirror is up but virtual display {id} is not main (gave up forcing)"
                 );
                 return;
             }
             self.forces += 1;
-            eprintln!(
-                "[virtualdisplay] forcing main onto virtual display (try {}/{MAX_FORCES})",
+            log::debug!(
+                "forcing main onto virtual display (try {}/{MAX_FORCES})",
                 self.forces
             );
 
@@ -309,14 +309,14 @@ impl Display {
             self.mirror.make_main(id);
             self.mirrored = self.mirror.enable(id);
             if !self.mirrored {
-                eprintln!("[virtualdisplay] re-mirror failed, rolling back main swap");
+                log::warn!("re-mirror failed, rolling back main swap");
                 self.mirror.rollback_swap();
                 self.mirrored = self.mirror.enable(id);
             }
         }
 
-        eprintln!(
-            "[virtualdisplay] ensure: mirrored={} main={}",
+        log::debug!(
+            "ensure: mirrored={} main={}",
             self.mirrored,
             CGDisplayIsMain(id)
         );
