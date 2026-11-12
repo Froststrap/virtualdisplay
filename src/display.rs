@@ -155,7 +155,7 @@ fn build_config(meta: &DisplayMeta) -> Option<Config<'_>> {
     };
 
     let refresh_rates = 
-        meta.rates.as_deref().unwrap_or(&[60.0, 120.0, 240.0]);
+        meta.rates.as_deref().unwrap_or(&[240.0, 120.0, 60.0]);
 
     // GUARD:
     // No really retarded numbers like big precsion

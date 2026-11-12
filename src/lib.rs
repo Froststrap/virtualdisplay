@@ -48,9 +48,12 @@ pub unsafe extern "C" fn init(
         return -1;
     }
 
-    let rates = Some(unsafe {
+    let mut rates = unsafe {
         std::slice::from_raw_parts(item, capacity)
-    }.to_vec()); 
+    }.to_vec();
+    rates.sort_by(|a, b| b.total_cmp(a));
+    rates.dedup();
+    let rates = Some(rates);
     
     let serial = if serial == 0 {
         use std::collections::hash_map::RandomState;
