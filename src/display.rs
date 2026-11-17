@@ -23,7 +23,7 @@ const MAX_ATTEMPTS: u32 = 30;
 /// how many times we may break/re-mirror to force the main role over
 const MAX_FORCES: u32 = 3;
 
-/// publically editable meta
+/// publicly editable meta
 /// by the user on `init()`
 #[derive(Clone)]
 pub struct DisplayMeta {
@@ -53,7 +53,7 @@ thread_local! {
 }
 
 pub fn init(s: DisplayMeta) -> i32 {
-    *META_LOCK.write().expect("aquire lock") = Some(s);
+    *META_LOCK.write().expect("acquire lock") = Some(s);
     0
 }
 
@@ -158,7 +158,7 @@ fn build_config(meta: &DisplayMeta) -> Option<Config<'_>> {
         meta.rates.as_deref().unwrap_or(&[240.0, 120.0, 60.0]);
 
     // GUARD:
-    // No really retarded numbers like big precsion
+    // No really retarded numbers like big precision
     // or dumb ones.
     for rate in refresh_rates {
         let scaled = rate * 100.0;
@@ -193,7 +193,7 @@ fn build_config(meta: &DisplayMeta) -> Option<Config<'_>> {
 
 impl Display {
     fn start() -> Result<Self, StartError> {
-        let meta = META_LOCK.read().expect("aquire lock").as_ref().cloned().expect("call init() to set data details to use");
+        let meta = META_LOCK.read().expect("acquire lock").as_ref().cloned().expect("call init() to set data details to use");
         let cfg = build_config(&meta).ok_or(StartError::Invalid)?;
 
         // GUARD:
